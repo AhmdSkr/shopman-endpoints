@@ -1,5 +1,7 @@
 package com.example.shopman.controller;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -10,15 +12,19 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.shopman.entity.Customer;
 import com.example.shopman.entity.Invoice;
+import com.example.shopman.entity.InvoiceLine;
+import com.example.shopman.entity.dto.InvoiceLinePostDto;
 import com.example.shopman.entity.dto.InvoicePatchDto;
 import com.example.shopman.entity.dto.InvoicePostDto;
 import com.example.shopman.entity.dto.InvoiceSummary;
+import com.example.shopman.repository.InvoiceLineRepository;
 import com.example.shopman.repository.InvoiceRepository;
 
 import lombok.AllArgsConstructor;
@@ -31,6 +37,7 @@ public class InvoiceController {
 	private static int PAGE_SIZE_DEFAULT = 30;
 
 	private InvoiceRepository repository;
+	private InvoiceLineRepository lineRepository;
 
 	@GetMapping
 	public ResponseEntity<Page<InvoiceSummary>> fetchAllInvoices(
@@ -64,19 +71,36 @@ public class InvoiceController {
 		return ResponseEntity.of(repository.findById(id));
 	}
 
+	@GetMapping("/{invoiceId}/lines")
+	public ResponseEntity<Page<InvoiceLine>> fetchAllLines(
+			@RequestParam(name = "page", defaultValue = "0", required = false) int page,
+			@RequestParam(name = "invoiceId", required = true) Long invoiceId) {
+		PageRequest paging = PageRequest.of(page, PAGE_SIZE_DEFAULT);
+		return ResponseEntity.ok(lineRepository.findAllByInvoiceId(invoiceId, paging));
+	}
+
 	@PostMapping
-	public ResponseEntity<Invoice> postInvoice(InvoicePostDto in) {
+	public ResponseEntity<Invoice> postInvoice(@RequestBody InvoicePostDto in) {
 
 		// TODO: validate input before accessing database
 		Invoice invoice = new Invoice(in);
 		invoice = repository.save(invoice);
 		// TODO: handle failure
+		if(in.lines != null) {
+			Collection<InvoiceLine> lines = new ArrayList<>(in.lines.size());
+			for(InvoiceLinePostDto dto : in.lines) {
+				InvoiceLine line = new InvoiceLine(invoice.getId(), dto);
+				lines.add(line);
+			}
+			invoice.setLines(lines);
+			invoice = repository.save(invoice);
+		}
 		return ResponseEntity.ok(invoice);
 	}
 
 	@PatchMapping("/{invoiceId}")
 	public ResponseEntity<Invoice> patchInvoice(@PathVariable(name = "invoiceId", required = true) long id,
-			InvoicePatchDto in) {
+			@RequestBody InvoicePatchDto in) {
 
 		Invoice invoice;
 		// TODO: validate data before accessing database

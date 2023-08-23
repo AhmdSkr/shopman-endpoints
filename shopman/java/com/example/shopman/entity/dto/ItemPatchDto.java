@@ -7,8 +7,6 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class ItemPatchDto {
 
-	public Optional<String> code;
-
 	public Optional<String> description;
 
 	public Optional<Long> price;

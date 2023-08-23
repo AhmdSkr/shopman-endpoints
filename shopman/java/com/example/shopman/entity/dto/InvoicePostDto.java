@@ -1,5 +1,6 @@
 package com.example.shopman.entity.dto;
 
+import java.util.Collection;
 import java.util.Optional;
 
 import lombok.AllArgsConstructor;
@@ -8,7 +9,5 @@ import lombok.AllArgsConstructor;
 public class InvoicePostDto {
 
 	public Optional<Long> ownerId;
-
-	public long value;
-
+	public Collection<InvoiceLinePostDto> lines;
 }

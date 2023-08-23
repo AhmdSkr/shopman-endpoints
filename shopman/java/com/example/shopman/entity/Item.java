@@ -78,14 +78,9 @@ public class Item {
 
 	public Item patch(ItemPatchDto obj) {
 		Item item = this;
-		
 		obj.description.ifPresent(this::setDescription);
 		obj.cost.ifPresent(this::setCost);
 		obj.price.ifPresent(this::setPrice);
-		if (obj.code.isPresent()) {
-			item = this.withCode(code);
-		}
-		
 		return item;
 	}
 

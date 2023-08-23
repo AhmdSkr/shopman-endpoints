@@ -62,7 +62,7 @@ public class Customer {
 	}
 
 	@JsonIgnore
-	@OneToMany(orphanRemoval = true, mappedBy = "owner")
+	@OneToMany(mappedBy = "owner")
 	private Collection<Invoice> invoices;
 
 	@Column(name = "firstname", nullable = false, length = Customer.MAX_NAME_LENGTH)

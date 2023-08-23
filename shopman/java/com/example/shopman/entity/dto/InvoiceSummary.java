@@ -8,8 +8,6 @@ public interface InvoiceSummary {
 
 	CustomerSummary getOwner();
 
-	Long getValue();
-
 	Instant getCreationInstant();
 
 	Instant getLastModificationInstant();
