@@ -17,6 +17,10 @@ import javax.persistence.Id;
 import javax.persistence.OneToMany;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Past;
+import javax.validation.constraints.Size;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -38,6 +42,13 @@ import lombok.Data;
 public class Customer {
 
 	public static final int MAX_NAME_LENGTH = 50;
+	public static final String MESSAGE_FIRSTNAME_NULL = "customers' first name should not be null";
+	public static final String MESSAGE_FIRSTNAME_BLANK = "customers' first name should not be blank";
+	public static final String MESSAGE_FIRSTNAME_LARGE = "customers' first name should not be larger than " + MAX_NAME_LENGTH + " characters";
+	public static final String MESSAGE_LASTNAME_NULL = "customers' last name should not be null";
+	public static final String MESSAGE_LASTNAME_BLANK = "customers' last name should not be blank";
+	public static final String MESSAGE_LASTNAME_LARGE = "customers' last name should not be larger than " + MAX_NAME_LENGTH + " characters";
+	public static final String MESSAGE_BIRTH_DATE_NON_PAST = "customers' birth date should be in the past";
 
 	public Customer() {
 		this.id = null;
@@ -65,15 +76,22 @@ public class Customer {
 	@OneToMany(mappedBy = "owner")
 	private Collection<Invoice> invoices;
 
+	@NotNull(message = MESSAGE_FIRSTNAME_NULL)
+	@NotBlank(message = MESSAGE_FIRSTNAME_BLANK)
+	@Size(max = MAX_NAME_LENGTH, message = MESSAGE_FIRSTNAME_LARGE)
 	@Column(name = "firstname", nullable = false, length = Customer.MAX_NAME_LENGTH)
 	private @Access(AccessType.PROPERTY) String firstname;
 
+	@NotNull(message = MESSAGE_LASTNAME_NULL)
+	@NotBlank(message = MESSAGE_LASTNAME_BLANK)
+	@Size(max = MAX_NAME_LENGTH, message = MESSAGE_LASTNAME_LARGE)
 	@Column(name = "lastname", nullable = false, length = Customer.MAX_NAME_LENGTH)
 	private @Access(AccessType.PROPERTY) String lastname;
 
 	@Enumerated(EnumType.STRING)
 	private @Access(AccessType.PROPERTY) Gender gender;
 
+	@Past
 	@Column(name = "birth_date", nullable = true)
 	private @Access(AccessType.PROPERTY) LocalDate birthDate;
 
@@ -84,11 +102,6 @@ public class Customer {
 	private @Access(AccessType.PROPERTY) Instant lastModificationInstant;
 
 	public Customer patch(CustomerPatchDto in) {
-		if(in == null) {
-			System.out.println("in is null");
-		}else if(in.firstname == null) {
-			System.out.println("firstname is null");
-		}
 		
 		in.firstname.ifPresent(this::setFirstname);
 		in.lastname.ifPresent(this::setLastname);

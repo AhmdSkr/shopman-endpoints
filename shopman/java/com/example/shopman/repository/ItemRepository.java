@@ -11,6 +11,8 @@ import com.example.shopman.entity.dto.ItemSummary;
 
 public interface ItemRepository extends JpaRepository<Item, Long> {
 
+	boolean existsByCode(String code);
+	
 	Optional<Item> findByCode(String code);
 
 	Page<ItemSummary> findAllBy(Pageable pageable);

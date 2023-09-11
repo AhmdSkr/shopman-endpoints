@@ -16,6 +16,8 @@ import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -35,6 +37,10 @@ import lombok.Data;
 @Data
 public class Invoice {
 	
+	public static final String MESSAGE_LINES_NULL = "invoices' lines collection should not be null";
+	public static final String MESSAGE_LINES_EMPTY = "invoices' lines should not be empty";
+	public static final String MESSAGE_LINE_NULL = "invoices' lines should not be null";
+
 	public Invoice() {
 		this.id = null;
 		this.owner = null;
@@ -45,6 +51,11 @@ public class Invoice {
 		this();
 		if (in.ownerId.isPresent()) {
 			this.owner = new Customer().withId(in.ownerId.get());
+		}
+		for(InvoiceLinePostDto lineDto : in.lines) {
+			InvoiceLine line = new InvoiceLine(lineDto);
+			line.setInvoice(this);
+			this.getLines().add(line);
 		}
 	}
 
@@ -60,8 +71,10 @@ public class Invoice {
 	@ManyToOne(optional = true)
 	private @Access(AccessType.PROPERTY) Customer owner;
 
+	@NotNull(message = MESSAGE_LINES_NULL)
+	@NotEmpty(message = MESSAGE_LINES_EMPTY)
 	@OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL)
-	private Collection<InvoiceLine> lines;
+	private Collection<@NotNull(message = MESSAGE_LINE_NULL) InvoiceLine> lines;
 
 	@CreatedDate
 	private @Access(AccessType.PROPERTY) Instant creationInstant;
@@ -74,9 +87,13 @@ public class Invoice {
 			Long ownerId = in.ownerId.get();
 			this.owner = new Customer().withId(ownerId);
 		}
-		for (InvoiceLinePostDto dto : in.newLines) {
-			InvoiceLine line = new InvoiceLine(this.id, dto);
-			this.lines.add(line);
+		
+		if(in.newLines != null) {
+			for (InvoiceLinePostDto dto : in.newLines) {
+				InvoiceLine line = new InvoiceLine(dto);
+				line.setInvoice(this);
+				this.lines.add(line);
+			}
 		}
 		return this;
 	}

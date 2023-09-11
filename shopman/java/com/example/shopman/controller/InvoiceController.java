@@ -1,11 +1,11 @@
 package com.example.shopman.controller;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Optional;
 
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,108 +15,90 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.shopman.entity.Customer;
 import com.example.shopman.entity.Invoice;
-import com.example.shopman.entity.InvoiceLine;
-import com.example.shopman.entity.dto.InvoiceLinePostDto;
 import com.example.shopman.entity.dto.InvoicePatchDto;
 import com.example.shopman.entity.dto.InvoicePostDto;
 import com.example.shopman.entity.dto.InvoiceSummary;
-import com.example.shopman.repository.InvoiceLineRepository;
 import com.example.shopman.repository.InvoiceRepository;
+import com.example.shopman.validation.NegativePageException;
 
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
 @RestController
-@RequestMapping("/invoices")
+@RequestMapping(InvoiceController.INVOICE_ROUTE_PREFIX)
 public class InvoiceController {
 
+	private static final String INVOICE_ROUTE_PREFIX = "/invoices";
+	private static final String INVOICE_ID_PARAMETER = "/{invoiceId:[0-9]+}";
 	private static int PAGE_SIZE_DEFAULT = 30;
 
-	private InvoiceRepository repository;
-	private InvoiceLineRepository lineRepository;
+	private InvoiceRepository repository;	
 
 	@GetMapping
 	public ResponseEntity<Page<InvoiceSummary>> fetchAllInvoices(
 			@RequestParam(name = "page", defaultValue = "0", required = false) int page,
-			@RequestParam(name = "owner", required = false) Optional<Long> ownerId) {
-
+			@RequestParam(name = "owner", required = false) Optional<Long> ownerId) throws NegativePageException {
+		
+		if (page < 0) {
+			throw new NegativePageException(page);
+		}
 		PageRequest paging = PageRequest.of(page, PAGE_SIZE_DEFAULT);
 		Page<InvoiceSummary> pagination;
-
+		
 		if (!ownerId.isPresent()) {
 			pagination = repository.findAllByOrderByCreationInstantDesc(paging);
 		} else {
 			Customer customer = new Customer().withId(ownerId.get());
 			pagination = repository.findAllByOwnerOrderByCreationInstantDesc(customer, paging);
 		}
-
+		
 		return ResponseEntity.ok(pagination);
 	}
 
 	@GetMapping("/no-owner")
 	public ResponseEntity<Page<InvoiceSummary>> fetchAllInvoicesNotOwned(
-			@RequestParam(name = "page", defaultValue = "0", required = false) int page) {
-
-		PageRequest paging = PageRequest.of(page, PAGE_SIZE_DEFAULT);
-		Page<InvoiceSummary> pagination = repository.findAllByOwnerOrderByCreationInstantDesc(null, paging);
-		return ResponseEntity.ok(pagination);
+			@RequestParam(name = "page", defaultValue = "0", required = false) int page) throws NegativePageException {
+		if (page < 0) {
+			throw new NegativePageException(page);
+		}
+		return ResponseEntity.ok(repository.findAllByOwnerOrderByCreationInstantDesc(null, PageRequest.of(page, PAGE_SIZE_DEFAULT)));
 	}
 
-	@GetMapping("/{invoiceId}")
+	@GetMapping(INVOICE_ID_PARAMETER)
 	public ResponseEntity<Invoice> fetchInvoice(@PathVariable(name = "invoiceId", required = true) long id) {
 		return ResponseEntity.of(repository.findById(id));
 	}
 
-	@GetMapping("/{invoiceId}/lines")
-	public ResponseEntity<Page<InvoiceLine>> fetchAllLines(
-			@RequestParam(name = "page", defaultValue = "0", required = false) int page,
-			@RequestParam(name = "invoiceId", required = true) Long invoiceId) {
-		PageRequest paging = PageRequest.of(page, PAGE_SIZE_DEFAULT);
-		return ResponseEntity.ok(lineRepository.findAllByInvoiceId(invoiceId, paging));
-	}
-
+	@ResponseStatus(HttpStatus.CREATED)
 	@PostMapping
-	public ResponseEntity<Invoice> postInvoice(@RequestBody InvoicePostDto in) {
-
-		// TODO: validate input before accessing database
-		Invoice invoice = new Invoice(in);
-		invoice = repository.save(invoice);
-		// TODO: handle failure
-		if(in.lines != null) {
-			Collection<InvoiceLine> lines = new ArrayList<>(in.lines.size());
-			for(InvoiceLinePostDto dto : in.lines) {
-				InvoiceLine line = new InvoiceLine(invoice.getId(), dto);
-				lines.add(line);
-			}
-			invoice.setLines(lines);
-			invoice = repository.save(invoice);
-		}
-		return ResponseEntity.ok(invoice);
+	public void postInvoice(@RequestBody InvoicePostDto in) {
+		repository.save(new Invoice(in));
 	}
 
-	@PatchMapping("/{invoiceId}")
-	public ResponseEntity<Invoice> patchInvoice(@PathVariable(name = "invoiceId", required = true) long id,
+	@ResponseStatus(HttpStatus.OK)
+	@PatchMapping(INVOICE_ID_PARAMETER)
+	public void patchInvoice(@PathVariable(name = "invoiceId", required = true) long id,
 			@RequestBody InvoicePatchDto in) {
-
-		Invoice invoice;
-		// TODO: validate data before accessing database
 		Optional<Invoice> invoiceOpt = repository.findById(id);
 		if (!invoiceOpt.isPresent()) {
-			return ResponseEntity.notFound().build();
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
 		}
-		invoice = invoiceOpt.get().patch(in);
-		invoice = repository.save(invoice);
-		// TODO: handle fail
-		return ResponseEntity.ok(invoice);
+		repository.save(invoiceOpt.get().patch(in));
 	}
 
-	@DeleteMapping("/{invoiceId}")
+	@DeleteMapping(INVOICE_ID_PARAMETER)
 	public void deleteInvoice(@PathVariable(name = "invoiceId", required = true) long id) {
-		repository.deleteById(id);
+		try {
+			repository.deleteById(id);
+		} catch (EmptyResultDataAccessException ex) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+		}
 	}
 
 }
